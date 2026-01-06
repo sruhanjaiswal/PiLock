@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PiLock</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #121212;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+  }
+
+  #logo {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px auto;
+    background-color: #444;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #0ff;
+  }
+
+  input, select, button {
+    padding: 10px;
+    margin: 5px;
+    font-size: 16px;
+  }
+
+  #servoArm {
+    width: 150px;
+    height: 150px;
+    margin: 20px auto;
+    background: #222;
+    border-radius: 50%;
+    position: relative;
+  }
+
+  #servoPointer {
+    width: 4px;
+    height: 70px;
+    background: #0ff;
+    position: absolute;
+    bottom: 50%;
+    left: 50%;
+    transform-origin: bottom center;
+    transform: rotate(90deg);
+    transition: transform 0.5s ease-in-out; /* smooth movement */
+  }
+
+  #led {
+    width: 30px;
+    height: 30px;
+    background: #300; /* red off */
+    margin: 10px auto;
+    border-radius: 50%;
+    box-shadow: 0 0 5px #000;
+  }
+
+  #status {
+    font-size: 18px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Logo placeholder (replace with your Pi logo image if desired) -->
+<div id="logo">Pi</div>
+
+<h1>PiLock Control</h1>
+
+<input type="password" id="password" placeholder="Enter password"><br>
+
+<button onclick="sendAction('LOCK')">LOCK</button>
+<button onclick="sendAction('UNLOCK')">UNLOCK</button>
+
+<div>
+  <label for="commandBox">Command Box:</label>
+  <select id="commandBox">
+    <option value="SERVO_0">Servo 0°</option>
+    <option value="SERVO_90">Servo 90°</option>
+    <option value="SERVO_180">Servo 180°</option>
+    <option value="LED_ON">LED ON</option>
+    <option value="LED_OFF">LED OFF</option>
+  </select>
+  <button onclick="sendCommand()">Send Command</button>
+</div>
+
+<div id="servoArm">
+  <div id="servoPointer"></div>
+</div>
+
+<div id="led"></div>
+<div id="status"></div>
+
+<script>
+const SERVER_URL = "http://192.168.1.131:5000/pilock"; // <-- Replace with your Pi IP
+
+// Send LOCK/UNLOCK action
+function sendAction(action) {
+    const password = document.getElementById("password").value;
+    fetch(SERVER_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({action: action, password: password})
+    })
+    .then(response => response.json())
+    .then(data => updateUI(action, data.status))
+    .catch(err => {
+        document.getElementById("status").innerText = "ERROR: " + err;
+    
+    });
+}
+
+// Send command from command box
+function sendCommand() {
+    const command = document.getElementById("commandBox").value;
+    fetch(SERVER_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({action: command})
+    })
+    .then(response => response.json())
+    .then(data => updateUI(command, data.status))
+    .catch(err => {
+        document.getElementById("status").innerText = "ERROR: " + err;
+    });
+}
+
+// Update servo animation, LED, and status
+function updateUI(action, status) {
+    const pointer = document.getElementById("servoPointer");
+    const led = document.getElementById("led");
+    const statusText = document.getElementById("status");
+
+    // Servo animation
+    let angle = 90; // default
+    if(action === "SERVO_0") angle = 0;
+    else if(action === "SERVO_90") angle = 90;
+    else if(action === "SERVO_180") angle = 180;
+    else if(action === "LOCK") angle = 0;
+    else if(action === "UNLOCK") angle = 180;
+
+    pointer.style.transform = `rotate(${angle}deg)`;
+
+    // LED status
+    if(status.toLowerCase().includes("wrong")) {
+        led.style.background = "#f00"; // red
+        statusText.style.color = "#f00";
+    } else if(status.toLowerCase().includes("recognized") || status.toLowerCase().includes("on")) {
+        led.style.background = "#0f0"; // green
+        statusText.style.color = "#0f0";
+    } else {
+        led.style.background = "#300"; // off
+        statusText.style.color = "#fff";
+    }
+
+    statusText.innerText = status;
+}
+</script>
+
+</body>
+</html>
